@@ -1,0 +1,39 @@
+nanopub:
+  # (i) list of nanopub servers for submission:
+  servers:
+    - http://localhost:8080
+  # (i) strategy for selecting servers:
+  strategy: all
+  # (i) or select randomly N from the servers:
+  # strategy: random
+  # strategy_number: 1
+  # (i) if you need to adjust for np client:
+  client_exec: np
+  client_timeout: 10
+  # (i) signing nanopubs:
+  sign_nanopub: false
+  sign_key_type: DSA
+  sign_private_key: /app/id_dsa
+  # sign_key_type: RSA
+  # sign_private_key: /app/id_rsa
+  # (i) workdir for temp files:
+  workdir: /app/tmp
+
+triple_store:
+  enabled: false
+  #  sparql_endpoint:
+  #  auth:
+  #    method:   # BASIC or DIGEST
+  #    username:
+  #    password:
+
+# (i) Security that then requires header:
+#     Authorization: "Bearer <token>"
+security:
+  enabled: false
+  tokens:
+    - ...
+
+#logging:
+#  level: WARNING
+#  format: ...
