@@ -1,6 +1,6 @@
 PACKAGE_NAME = 'nanopub_submitter'
 NICE_NAME = 'DSW Nanopublication Submission Service'
-PACKAGE_VERSION = '0.1.0'
+PACKAGE_VERSION = '1.0.0'
 ENV_CONFIG = 'SUBMISSION_CONFIG'
 LOGGER_NAME = 'DSW_SUBMITTER'
 
