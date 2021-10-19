@@ -7,7 +7,7 @@ with open(os.path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='nanopub_submitter',
-    version='0.1.0',
+    version='1.0.0',
     keywords='dsw submission document nanopublication',
     description='Submission service for publishing nanopublications from DSW',
     long_description=long_description,
