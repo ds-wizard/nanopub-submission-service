@@ -132,8 +132,9 @@ def _np(*args, ctx: NanopubProcessingContext) -> Tuple[int, str, str]:
 
 def _run_np_trusty(ctx: NanopubProcessingContext) -> str:
     exit_code, stdout, stderr = _np(
-        'mktrusty', '-o', ctx.trusty_file, ctx.input_file,
-        ctx=ctx
+        'mktrusty', '-r',
+        '-o', ctx.trusty_file, ctx.input_file,
+        ctx=ctx,
     )
     if exit_code != EXIT_SUCCESS:
         LOG.warn(f'Failed to make TrustyURI ({exit_code}):\n{stdout}\n\n{stderr}')
@@ -146,10 +147,11 @@ def _run_np_trusty(ctx: NanopubProcessingContext) -> str:
 
 def _run_np_sign(ctx: NanopubProcessingContext) -> str:
     exit_code, stdout, stderr = _np(
-        'sign', '-a', ctx.cfg.nanopub.sign_key_type,
+        'sign', '-r',
+        '-a', ctx.cfg.nanopub.sign_key_type,
         '-k', ctx.cfg.nanopub.sign_private_key,
         '-o', ctx.signed_file, ctx.input_file,
-        ctx=ctx
+        ctx=ctx,
     )
     if exit_code != EXIT_SUCCESS:
         LOG.warn(f'Failed to make TrustyURI ({exit_code}):\n{stdout}\n\n{stderr}')
@@ -161,13 +163,14 @@ def _run_np_sign(ctx: NanopubProcessingContext) -> str:
 
 
 def _extract_np_uri(nanopub: str) -> Optional[str]:
+    last_this_prefix = None
     for line in nanopub.splitlines():
-        if '@prefix this:' in line:
+        if line.startswith('@prefix this:'):
             try:
-                return line.split('<', maxsplit=1)[1].split('>', maxsplit=1)[0]
+                last_this_prefix = line.split('<', maxsplit=1)[1].split('>', maxsplit=1)[0]
             except Exception:
                 continue
-    return None
+    return last_this_prefix
 
 
 def process(cfg: SubmitterConfig, submission_id: str, data: str) -> NanopubSubmissionResult:
@@ -190,14 +193,12 @@ def process(cfg: SubmitterConfig, submission_id: str, data: str) -> NanopubSubmi
         ctx.cleanup()
         raise NanopubProcessingError(500, 'Failed to store nanopub locally')
 
-    ctx.debug('Generating trusty URIs for the nanopub')
-    result_file = _run_np_trusty(ctx=ctx)
-
     if cfg.nanopub.sign_nanopub:
         ctx.debug('Signing nanopub with private key')
         result_file = _run_np_sign(ctx=ctx)
     else:
-        ctx.debug('Signing nanopub skipped (disabled by config)')
+        ctx.debug('Generating trusty URIs for the nanopub')
+        result_file = _run_np_trusty(ctx=ctx)
 
     ctx.debug('Reading final nanopub')
     result_path = cfg.nanopub.workdir / result_file
