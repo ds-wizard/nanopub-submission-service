@@ -138,13 +138,13 @@ class SubmitterConfigParser:
             'name': 'Nanopub Submitter',
             'email': '',
             'host': '',
-            'port': '',
+            'port': 25,
             'security': 'plain',
             'authEnabled': False,
             'username': '',
             'password': '',
             'recipients': [],
-        }
+        },
     }
 
     REQUIRED = []  # type: List[List[str]]

@@ -83,25 +83,44 @@ class NanopubProcessingContext:
         LOG.error(f'{self._pre} {message}')
 
 
-def _publish_nanopub(nanopub: str, ctx: NanopubProcessingContext) -> list[str]:
+def _split_nanopubs(nanopub_bundle: str) -> list[str]:
+    lines = nanopub_bundle.splitlines()
+    nanopubs = list()  # type: list[str]
+    act_lines = list()  # type: list[str]
+    for line in lines:
+        if line.startswith('@prefix this:') and len(act_lines) > 0:
+            nanopubs.append('\n'.join(act_lines) + '\n')
+            act_lines.clear()
+        act_lines.append(line)
+    if len(act_lines) > 0:
+        nanopubs.append('\n'.join(act_lines) + '\n')
+    return nanopubs
+
+
+def _publish_nanopub(nanopub_bundle: str, ctx: NanopubProcessingContext) -> list[str]:
     success = []
+    nanopubs = _split_nanopubs(nanopub_bundle)
     for server in ctx.cfg.nanopub.target_servers:
         ctx.debug(f'Submitting to: {server}')
-        r = requests.post(
-            url=server,
-            data=nanopub,
-            headers={
-                'Content-Type': f'application/trig; charset={DEFAULT_ENCODING}',
-                'User-Agent': f'{PACKAGE_NAME}/{PACKAGE_VERSION}',
-            }
-        )
-        if r.ok:
-            ctx.warn(f'Nanopub published via {server}')
+        ok = True
+        for nanopub in nanopubs:
+            r = requests.post(
+                url=server,
+                data=nanopub,
+                headers={
+                    'Content-Type': f'application/trig; charset={DEFAULT_ENCODING}',
+                    'User-Agent': f'{PACKAGE_NAME}/{PACKAGE_VERSION}',
+                }
+            )
+            if not r.ok:
+                ok = False
+                ctx.warn(f'Failed to publish nanopub via {server}')
+                ctx.debug(f'status={r.status_code}')
+                ctx.debug(r.text)
+                break
+        if ok:
+            ctx.info(f'Nanopub published via {server}')
             success.append(server)
-        else:
-            ctx.warn(f'Failed to publish nanopub via {server}')
-            ctx.debug(f'status={r.status_code}')
-            ctx.debug(r.text)
     return success
 
 
@@ -215,8 +234,8 @@ def process(cfg: SubmitterConfig, submission_id: str, data: str) -> NanopubSubmi
         ctx.cleanup()
         raise NanopubProcessingError(400, 'Failed to get nanopub URI')
 
-    ctx.debug('Submitting nanopub to server(s)')
-    servers = _publish_nanopub(nanopub=nanopub, ctx=ctx)
+    ctx.debug('Submitting nanopub(s) to server(s)')
+    servers = _publish_nanopub(nanopub_bundle=nanopub, ctx=ctx)
 
     if len(servers) == 0:
         ctx.error('Failed to publish nanopub')
