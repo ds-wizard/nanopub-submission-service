@@ -66,14 +66,33 @@ class LoggingConfig:
         self.format = message_format
 
 
+class MailConfig:
+
+    def __init__(self, enabled: bool, name: str, email: str,
+                 host: str, port: int, security: str, auth: bool,
+                 username: str, password: str, recipients: list[str]):
+        self.enabled = enabled
+        self.name = name
+        self.email = email
+        self.host = host
+        self.port = port
+        self.security = security.lower()
+        self.auth = auth
+        self.username = username
+        self.password = password
+        self.recipients = recipients
+
+
 class SubmitterConfig:
 
     def __init__(self, nanopub: NanopubConfig, security: SecurityConfig,
-                 triple_store: TripleStoreConfig, logging: LoggingConfig):
+                 triple_store: TripleStoreConfig, logging: LoggingConfig,
+                 mail: MailConfig):
         self.nanopub = nanopub
         self.security = security
         self.triple_store = triple_store
         self.logging = logging
+        self.mail = mail
 
 
 class SubmitterConfigParser:
@@ -114,6 +133,18 @@ class SubmitterConfigParser:
             'level': 'INFO',
             'format': '%(asctime)s | %(levelname)s | %(module)s: %(message)s',
         },
+        'mail': {
+            'enabled': False,
+            'name': 'Nanopub Submitter',
+            'email': '',
+            'host': '',
+            'port': '',
+            'security': 'plain',
+            'authEnabled': False,
+            'username': '',
+            'password': '',
+            'recipients': [],
+        }
     }
 
     REQUIRED = []  # type: List[List[str]]
@@ -194,6 +225,21 @@ class SubmitterConfigParser:
             strategy=self.get_or_default('triple_store', 'strategy'),
         )
 
+    @property
+    def _mail(self):
+        return MailConfig(
+            enabled=self.get_or_default('mail', 'enabled'),
+            name=self.get_or_default('mail', 'name'),
+            email=self.get_or_default('mail', 'email'),
+            host=self.get_or_default('mail', 'host'),
+            port=self.get_or_default('mail', 'port'),
+            security=self.get_or_default('mail', 'security'),
+            auth=self.get_or_default('mail', 'authEnabled'),
+            username=self.get_or_default('mail', 'username'),
+            password=self.get_or_default('mail', 'password'),
+            recipients=self.get_or_default('mail', 'recipients'),
+        )
+
     def parse_file(self, fp) -> SubmitterConfig:
         self.cfg = yaml.full_load(fp)
         self.validate()
@@ -206,6 +252,7 @@ class SubmitterConfigParser:
             security=self._security,
             logging=self._logging,
             triple_store=self._triple_store,
+            mail=self._mail,
         )
 
 

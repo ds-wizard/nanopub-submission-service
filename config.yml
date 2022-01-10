@@ -34,6 +34,19 @@ security:
   tokens:
     - ...
 
+mail:
+  enabled: false
+  name:
+  email:
+  host:
+  port:
+  security:
+  authEnabled:
+  username:
+  password:
+  recipients:
+    -
+
 #logging:
 #  level: WARNING
 #  format: ...
