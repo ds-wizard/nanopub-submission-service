@@ -83,25 +83,44 @@ class NanopubProcessingContext:
         LOG.error(f'{self._pre} {message}')
 
 
-def _publish_nanopub(nanopub: str, ctx: NanopubProcessingContext) -> list[str]:
+def _split_nanopubs(nanopub_bundle: str) -> list[str]:
+    lines = nanopub_bundle.splitlines()
+    nanopubs = list()  # type: list[str]
+    act_lines = list()  # type: list[str]
+    for line in lines:
+        if line.startswith('@prefix this:') and len(act_lines) > 0:
+            nanopubs.append('\n'.join(act_lines) + '\n')
+            act_lines.clear()
+        act_lines.append(line)
+    if len(act_lines) > 0:
+        nanopubs.append('\n'.join(act_lines) + '\n')
+    return nanopubs
+
+
+def _publish_nanopub(nanopub_bundle: str, ctx: NanopubProcessingContext) -> list[str]:
     success = []
+    nanopubs = _split_nanopubs(nanopub_bundle)
     for server in ctx.cfg.nanopub.target_servers:
         ctx.debug(f'Submitting to: {server}')
-        r = requests.post(
-            url=server,
-            data=nanopub,
-            headers={
-                'Content-Type': f'application/trig; charset={DEFAULT_ENCODING}',
-                'User-Agent': f'{PACKAGE_NAME}/{PACKAGE_VERSION}',
-            }
-        )
-        if r.ok:
-            ctx.warn(f'Nanopub published via {server}')
+        ok = True
+        for nanopub in nanopubs:
+            r = requests.post(
+                url=server,
+                data=nanopub,
+                headers={
+                    'Content-Type': f'application/trig; charset={DEFAULT_ENCODING}',
+                    'User-Agent': f'{PACKAGE_NAME}/{PACKAGE_VERSION}',
+                }
+            )
+            if not r.ok:
+                ok = False
+                ctx.warn(f'Failed to publish nanopub via {server}')
+                ctx.debug(f'status={r.status_code}')
+                ctx.debug(r.text)
+                break
+        if ok:
+            ctx.info(f'Nanopub published via {server}')
             success.append(server)
-        else:
-            ctx.warn(f'Failed to publish nanopub via {server}')
-            ctx.debug(f'status={r.status_code}')
-            ctx.debug(r.text)
     return success
 
 
@@ -132,8 +151,9 @@ def _np(*args, ctx: NanopubProcessingContext) -> Tuple[int, str, str]:
 
 def _run_np_trusty(ctx: NanopubProcessingContext) -> str:
     exit_code, stdout, stderr = _np(
-        'mktrusty', '-o', ctx.trusty_file, ctx.input_file,
-        ctx=ctx
+        'mktrusty', '-r',
+        '-o', ctx.trusty_file, ctx.input_file,
+        ctx=ctx,
     )
     if exit_code != EXIT_SUCCESS:
         LOG.warn(f'Failed to make TrustyURI ({exit_code}):\n{stdout}\n\n{stderr}')
@@ -146,10 +166,11 @@ def _run_np_trusty(ctx: NanopubProcessingContext) -> str:
 
 def _run_np_sign(ctx: NanopubProcessingContext) -> str:
     exit_code, stdout, stderr = _np(
-        'sign', '-a', ctx.cfg.nanopub.sign_key_type,
+        'sign', '-r',
+        '-a', ctx.cfg.nanopub.sign_key_type,
         '-k', ctx.cfg.nanopub.sign_private_key,
         '-o', ctx.signed_file, ctx.input_file,
-        ctx=ctx
+        ctx=ctx,
     )
     if exit_code != EXIT_SUCCESS:
         LOG.warn(f'Failed to make TrustyURI ({exit_code}):\n{stdout}\n\n{stderr}')
@@ -161,13 +182,14 @@ def _run_np_sign(ctx: NanopubProcessingContext) -> str:
 
 
 def _extract_np_uri(nanopub: str) -> Optional[str]:
+    last_this_prefix = None
     for line in nanopub.splitlines():
-        if '@prefix this:' in line:
+        if line.startswith('@prefix this:'):
             try:
-                return line.split('<', maxsplit=1)[1].split('>', maxsplit=1)[0]
+                last_this_prefix = line.split('<', maxsplit=1)[1].split('>', maxsplit=1)[0]
             except Exception:
                 continue
-    return None
+    return last_this_prefix
 
 
 def process(cfg: SubmitterConfig, submission_id: str, data: str) -> NanopubSubmissionResult:
@@ -190,14 +212,12 @@ def process(cfg: SubmitterConfig, submission_id: str, data: str) -> NanopubSubmi
         ctx.cleanup()
         raise NanopubProcessingError(500, 'Failed to store nanopub locally')
 
-    ctx.debug('Generating trusty URIs for the nanopub')
-    result_file = _run_np_trusty(ctx=ctx)
-
     if cfg.nanopub.sign_nanopub:
         ctx.debug('Signing nanopub with private key')
         result_file = _run_np_sign(ctx=ctx)
     else:
-        ctx.debug('Signing nanopub skipped (disabled by config)')
+        ctx.debug('Generating trusty URIs for the nanopub')
+        result_file = _run_np_trusty(ctx=ctx)
 
     ctx.debug('Reading final nanopub')
     result_path = cfg.nanopub.workdir / result_file
@@ -214,8 +234,14 @@ def process(cfg: SubmitterConfig, submission_id: str, data: str) -> NanopubSubmi
         ctx.cleanup()
         raise NanopubProcessingError(400, 'Failed to get nanopub URI')
 
-    ctx.debug('Submitting nanopub to server(s)')
-    servers = _publish_nanopub(nanopub=nanopub, ctx=ctx)
+    if cfg.nanopub.uri_replace is not None:
+        old, new = cfg.nanopub.uri_replace.split('|', maxsplit=1)
+        new_uri = nanopub_uri.replace(old, new)
+        LOG.debug(f'Replacing {nanopub_uri} with {new_uri}')
+        nanopub_uri = new_uri
+
+    ctx.debug('Submitting nanopub(s) to server(s)')
+    servers = _publish_nanopub(nanopub_bundle=nanopub, ctx=ctx)
 
     if len(servers) == 0:
         ctx.error('Failed to publish nanopub')

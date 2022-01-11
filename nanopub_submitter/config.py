@@ -14,7 +14,7 @@ class MissingConfigurationError(Exception):
 class NanopubConfig:
 
     def __init__(self, servers: List[str], client_exec: str,
-                 strategy: str, strategy_number: int,
+                 strategy: str, strategy_number: int, uri_replace: str,
                  client_timeout: int, workdir: str, sign_key_type: str,
                  sign_nanopub: bool, sign_private_key: Optional[str]):
         self.servers = servers
@@ -26,6 +26,7 @@ class NanopubConfig:
         self.sign_key_type = sign_key_type
         self.sign_private_key = sign_private_key
         self.workdir = pathlib.Path(workdir)
+        self.uri_replace = uri_replace
 
     @property
     def target_servers(self) -> list[str]:
@@ -66,14 +67,33 @@ class LoggingConfig:
         self.format = message_format
 
 
+class MailConfig:
+
+    def __init__(self, enabled: bool, name: str, email: str,
+                 host: str, port: int, security: str, auth: bool,
+                 username: str, password: str, recipients: list[str]):
+        self.enabled = enabled
+        self.name = name
+        self.email = email
+        self.host = host
+        self.port = port
+        self.security = security.lower()
+        self.auth = auth
+        self.username = username
+        self.password = password
+        self.recipients = recipients
+
+
 class SubmitterConfig:
 
     def __init__(self, nanopub: NanopubConfig, security: SecurityConfig,
-                 triple_store: TripleStoreConfig, logging: LoggingConfig):
+                 triple_store: TripleStoreConfig, logging: LoggingConfig,
+                 mail: MailConfig):
         self.nanopub = nanopub
         self.security = security
         self.triple_store = triple_store
         self.logging = logging
+        self.mail = mail
 
 
 class SubmitterConfigParser:
@@ -89,6 +109,7 @@ class SubmitterConfigParser:
             'sign_key_type': 'DSA',
             'sign_private_key': '',
             'workdir': '/app/workdir',
+            'uri_replace': None,
         },
         'triple_store': {
             'enabled': False,
@@ -113,6 +134,18 @@ class SubmitterConfigParser:
         'logging': {
             'level': 'INFO',
             'format': '%(asctime)s | %(levelname)s | %(module)s: %(message)s',
+        },
+        'mail': {
+            'enabled': False,
+            'name': 'Nanopub Submitter',
+            'email': '',
+            'host': '',
+            'port': 25,
+            'security': 'plain',
+            'authEnabled': False,
+            'username': '',
+            'password': '',
+            'recipients': [],
         },
     }
 
@@ -163,6 +196,7 @@ class SubmitterConfigParser:
             sign_key_type=self.get_or_default('nanopub', 'sign_key_type'),
             sign_private_key=self.get_or_default('nanopub', 'sign_private_key'),
             workdir=self.get_or_default('nanopub', 'workdir'),
+            uri_replace=self.get_or_default('nanopub', 'uri_replace'),
         )
 
     @property
@@ -194,6 +228,21 @@ class SubmitterConfigParser:
             strategy=self.get_or_default('triple_store', 'strategy'),
         )
 
+    @property
+    def _mail(self):
+        return MailConfig(
+            enabled=self.get_or_default('mail', 'enabled'),
+            name=self.get_or_default('mail', 'name'),
+            email=self.get_or_default('mail', 'email'),
+            host=self.get_or_default('mail', 'host'),
+            port=self.get_or_default('mail', 'port'),
+            security=self.get_or_default('mail', 'security'),
+            auth=self.get_or_default('mail', 'authEnabled'),
+            username=self.get_or_default('mail', 'username'),
+            password=self.get_or_default('mail', 'password'),
+            recipients=self.get_or_default('mail', 'recipients'),
+        )
+
     def parse_file(self, fp) -> SubmitterConfig:
         self.cfg = yaml.full_load(fp)
         self.validate()
@@ -206,6 +255,7 @@ class SubmitterConfigParser:
             security=self._security,
             logging=self._logging,
             triple_store=self._triple_store,
+            mail=self._mail,
         )
 
 

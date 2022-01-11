@@ -10,6 +10,7 @@ from nanopub_submitter.config import cfg_parser
 from nanopub_submitter.consts import NICE_NAME, VERSION, BUILD_INFO,\
     ENV_CONFIG, DEFAULT_CONFIG, DEFAULT_ENCODING
 from nanopub_submitter.logger import LOG, init_default_logging, init_config_logging
+from nanopub_submitter.mailer import Mailer
 from nanopub_submitter.nanopub import process, NanopubProcessingError
 
 app = fastapi.FastAPI(
@@ -86,7 +87,9 @@ async def submit_nanopub(request: fastapi.Request):
             status_code=fastapi.status.HTTP_500_INTERNAL_SERVER_ERROR,
             content='Failed to process the nanopublication',
         )
-    # (4) Return
+    # (4) Mail
+    Mailer.get().notice(nanopub_uri=result.location)
+    # (5) Return
     return fastapi.responses.Response(
         status_code=fastapi.status.HTTP_201_CREATED,
         headers={
@@ -105,6 +108,7 @@ async def app_init():
         with pathlib.Path(config_file).open() as fp:
             cfg = cfg_parser.parse_file(fp=fp)
         init_config_logging(config=cfg)
+        Mailer.init(config=cfg)
     except Exception as e:
         LOG.warn(f'Failed to load config: {config_file}')
         LOG.debug(str(e))
