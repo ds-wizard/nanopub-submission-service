@@ -14,7 +14,7 @@ class MissingConfigurationError(Exception):
 class NanopubConfig:
 
     def __init__(self, servers: List[str], client_exec: str,
-                 strategy: str, strategy_number: int,
+                 strategy: str, strategy_number: int, uri_replace: str,
                  client_timeout: int, workdir: str, sign_key_type: str,
                  sign_nanopub: bool, sign_private_key: Optional[str]):
         self.servers = servers
@@ -26,6 +26,7 @@ class NanopubConfig:
         self.sign_key_type = sign_key_type
         self.sign_private_key = sign_private_key
         self.workdir = pathlib.Path(workdir)
+        self.uri_replace = uri_replace
 
     @property
     def target_servers(self) -> list[str]:
@@ -108,6 +109,7 @@ class SubmitterConfigParser:
             'sign_key_type': 'DSA',
             'sign_private_key': '',
             'workdir': '/app/workdir',
+            'uri_replace': None,
         },
         'triple_store': {
             'enabled': False,
@@ -194,6 +196,7 @@ class SubmitterConfigParser:
             sign_key_type=self.get_or_default('nanopub', 'sign_key_type'),
             sign_private_key=self.get_or_default('nanopub', 'sign_private_key'),
             workdir=self.get_or_default('nanopub', 'workdir'),
+            uri_replace=self.get_or_default('nanopub', 'uri_replace'),
         )
 
     @property

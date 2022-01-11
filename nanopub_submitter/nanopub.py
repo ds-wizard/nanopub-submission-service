@@ -234,6 +234,12 @@ def process(cfg: SubmitterConfig, submission_id: str, data: str) -> NanopubSubmi
         ctx.cleanup()
         raise NanopubProcessingError(400, 'Failed to get nanopub URI')
 
+    if cfg.nanopub.uri_replace is not None:
+        old, new = cfg.nanopub.uri_replace.split('|', maxsplit=1)
+        new_uri = nanopub_uri.replace(old, new)
+        LOG.debug(f'Replacing {nanopub_uri} with {new_uri}')
+        nanopub_uri = new_uri
+
     ctx.debug('Submitting nanopub(s) to server(s)')
     servers = _publish_nanopub(nanopub_bundle=nanopub, ctx=ctx)
 
