@@ -4,7 +4,7 @@ import subprocess
 
 from typing import Optional, Tuple
 
-from nanopub_submitter.config import SubmitterConfig
+from nanopub_submitter.config import SubmitterConfig, RequestConfig
 from nanopub_submitter.consts import DEFAULT_ENCODING, PACKAGE_NAME, PACKAGE_VERSION
 from nanopub_submitter.logger import LOG
 from nanopub_submitter.triple_store import store_to_triple_store
@@ -40,9 +40,11 @@ class NanopubSubmissionResult:
 
 class NanopubProcessingContext:
 
-    def __init__(self, submission_id: str, cfg: SubmitterConfig):
+    def __init__(self, submission_id: str, cfg: SubmitterConfig,
+                 req_cfg: RequestConfig):
         self.id = submission_id
         self.cfg = cfg
+        self.req_cfg = req_cfg
         self.uri = None
 
     def cleanup(self):
@@ -53,6 +55,20 @@ class NanopubProcessingContext:
                 file_path.unlink(missing_ok=True)
             except Exception:
                 pass
+
+    @property
+    def target_servers(self) -> list[str]:
+        if len(self.req_cfg.servers) > 0:
+            return self.req_cfg.servers
+        return self.cfg.nanopub.target_servers
+
+    @property
+    def uri_replace(self) -> Optional[str]:
+        if self.req_cfg.uri_replace is None:
+            return self.cfg.nanopub.uri_replace
+        if '|' in self.req_cfg.uri_replace:
+            return self.req_cfg.uri_replace
+        return None
 
     @property
     def input_file(self) -> str:
@@ -100,7 +116,7 @@ def _split_nanopubs(nanopub_bundle: str) -> list[str]:
 def _publish_nanopub(nanopub_bundle: str, ctx: NanopubProcessingContext) -> list[str]:
     success = []
     nanopubs = _split_nanopubs(nanopub_bundle)
-    for server in ctx.cfg.nanopub.target_servers:
+    for server in ctx.target_servers:
         ctx.debug(f'Submitting to: {server}')
         ok = True
         for nanopub in nanopubs:
@@ -192,8 +208,13 @@ def _extract_np_uri(nanopub: str) -> Optional[str]:
     return last_this_prefix
 
 
-def process(cfg: SubmitterConfig, submission_id: str, data: str) -> NanopubSubmissionResult:
-    ctx = NanopubProcessingContext(submission_id=submission_id, cfg=cfg)
+def process(cfg: SubmitterConfig, req_cfg: RequestConfig,
+            submission_id: str, data: str) -> NanopubSubmissionResult:
+    ctx = NanopubProcessingContext(
+        submission_id=submission_id,
+        cfg=cfg,
+        req_cfg=req_cfg,
+    )
     ctx.debug('Preprocessing nanopublication as RDF')
     try:
         graph = rdflib.ConjunctiveGraph()
@@ -234,8 +255,8 @@ def process(cfg: SubmitterConfig, submission_id: str, data: str) -> NanopubSubmi
         ctx.cleanup()
         raise NanopubProcessingError(400, 'Failed to get nanopub URI')
 
-    if cfg.nanopub.uri_replace is not None:
-        old, new = cfg.nanopub.uri_replace.split('|', maxsplit=1)
+    if ctx.uri_replace is not None:
+        old, new = ctx.uri_replace.split('|', maxsplit=1)
         new_uri = nanopub_uri.replace(old, new)
         LOG.debug(f'Replacing {nanopub_uri} with {new_uri}')
         nanopub_uri = new_uri
