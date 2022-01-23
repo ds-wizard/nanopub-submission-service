@@ -120,20 +120,25 @@ def _publish_nanopub(nanopub_bundle: str, ctx: NanopubProcessingContext) -> list
         ctx.debug(f'Submitting to: {server}')
         ok = True
         for nanopub in nanopubs:
-            r = requests.post(
-                url=server,
-                data=nanopub,
-                headers={
-                    'Content-Type': f'application/trig; charset={DEFAULT_ENCODING}',
-                    'User-Agent': f'{PACKAGE_NAME}/{PACKAGE_VERSION}',
-                },
-                timeout=10,
-            )
-            if not r.ok:
+            try:
+                r = requests.post(
+                    url=server,
+                    data=nanopub.encode(encoding=DEFAULT_ENCODING),
+                    headers={
+                        'Content-Type': f'application/trig; charset={DEFAULT_ENCODING}',
+                        'User-Agent': f'{PACKAGE_NAME}/{PACKAGE_VERSION}',
+                    },
+                    timeout=10,
+                )
+                if not r.ok:
+                    ok = False
+                    ctx.warn(f'Failed to publish nanopub via {server}')
+                    ctx.debug(f'status={r.status_code}')
+                    ctx.debug(r.text)
+                    break
+            except Exception as e:
                 ok = False
-                ctx.warn(f'Failed to publish nanopub via {server}')
-                ctx.debug(f'status={r.status_code}')
-                ctx.debug(r.text)
+                ctx.warn(f'Failed to publish nanopub via {server}: {str(e)}')
                 break
         if ok:
             ctx.info(f'Nanopub published via {server}')

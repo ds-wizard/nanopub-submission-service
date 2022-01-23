@@ -96,7 +96,7 @@ async def submit_nanopub(request: fastapi.Request):
         LOG.error(f'[{submission_id}] Unexpected processing error: {str(e)}')
         return fastapi.responses.PlainTextResponse(
             status_code=fastapi.status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content='Failed to process the nanopublication',
+            content=f'Failed to process the nanopublication: {str(e)}',
         )
     # (4) Mail
     Mailer.get().notice(nanopub_uri=result.location)
