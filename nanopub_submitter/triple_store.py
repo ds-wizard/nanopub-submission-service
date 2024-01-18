@@ -6,7 +6,7 @@ import SPARQLWrapper  # type: ignore
 from typing import List
 
 from nanopub_submitter.config import SubmitterConfig
-from nanopub_submitter.consts import COMMENT_INSTRUCTION_DELIMITER,\
+from nanopub_submitter.consts import COMMENT_INSTRUCTION_DELIMITER, \
     COMMENT_POST_QUERY_PREFIX, COMMENT_PRE_QUERY_PREFIX
 
 
@@ -20,6 +20,17 @@ GRAPH_CLASSES = {
 
 def create_graph(class_name: str) -> rdflib.Graph:
     return GRAPH_CLASSES.get(class_name, rdflib.Graph)()
+
+
+def _n3(node: rdflib.term.Node) -> str:
+    if isinstance(node, rdflib.URIRef):
+        return node.n3()
+    elif isinstance(node, rdflib.Literal):
+        return node.n3()
+    elif isinstance(node, rdflib.BNode):
+        return node.n3()
+    else:
+        raise ValueError(f'Unknown node type: {type(node)}')
 
 
 class QueryBuilder:
@@ -89,7 +100,7 @@ def basic_query_builder(cfg: SubmitterConfig, data: str, input_format: str) -> s
     g = create_graph(cfg.triple_store.graph_class)
     g.parse(data=data, format=input_format)
     triples = [
-        f'{s.n3()} {p.n3()} {o.n3()} .' for s, p, o in g
+        f'{_n3(s)} {_n3(p)} {_n3(o)} .' for s, p, o in g
     ]
     if cfg.triple_store.graph_named is True and cfg.triple_store.graph_type:
         t = rdflib.URIRef(cfg.triple_store.graph_type)
@@ -115,7 +126,7 @@ def multi_graph_query_builder(cfg: SubmitterConfig, data: str, input_format: str
     qb.insert_multigraph_start()
     for ctx in cg.contexts():
         triples = [
-            f'{s.n3()} {p.n3()} {o.n3()} .'
+            f'{_n3(s)} {_n3(p)} {_n3(o)} .'
             for s, p, o in cg.triples((None, None, None), context=ctx)
         ]
         qb.insert_multigraph(triples=triples, graph_node=ctx.identifier)

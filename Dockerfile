@@ -1,7 +1,7 @@
-FROM python:3.9-slim-buster
+FROM python:3.11-slim-bookworm
 
 RUN apt-get update && \
-  apt install -y --no-install-recommends bash default-jre && \
+  apt install -y --no-install-recommends bash default-jre build-essential gcc && \
   rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

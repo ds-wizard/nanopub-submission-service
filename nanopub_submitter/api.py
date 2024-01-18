@@ -7,7 +7,7 @@ import uuid
 from typing import Tuple
 
 from nanopub_submitter.config import cfg_parser, RequestConfig
-from nanopub_submitter.consts import NICE_NAME, VERSION, BUILD_INFO,\
+from nanopub_submitter.consts import NICE_NAME, VERSION, BUILD_INFO, \
     ENV_CONFIG, DEFAULT_CONFIG, DEFAULT_ENCODING
 from nanopub_submitter.logger import LOG, init_default_logging, init_config_logging
 from nanopub_submitter.mailer import Mailer
@@ -101,11 +101,12 @@ async def submit_nanopub(request: fastapi.Request):
     # (4) Mail
     Mailer.get().notice(nanopub_uri=result.location)
     # (5) Return
+    headers = dict()
+    if result.location is not None:
+        headers['Location'] = result.location
     return fastapi.responses.Response(
         status_code=fastapi.status.HTTP_201_CREATED,
-        headers={
-            'Location': result.location,
-        },
+        headers=headers,
         content=str(result),
     )
 
