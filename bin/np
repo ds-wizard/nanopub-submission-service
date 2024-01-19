@@ -61,4 +61,3 @@ fi
 
 >&2 echo "ERROR: Failed to find or download nanopub jar file."
 exit 1
-

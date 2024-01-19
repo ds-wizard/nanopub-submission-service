@@ -195,10 +195,10 @@ def _run_np_sign(ctx: NanopubProcessingContext) -> str:
         ctx=ctx,
     )
     if exit_code != EXIT_SUCCESS:
-        LOG.warn(f'Failed to make TrustyURI ({exit_code}):\n{stdout}\n\n{stderr}')
+        LOG.warn(f'Failed to sign the nanopub ({exit_code}):\n{stdout}\n\n{stderr}')
         raise NanopubProcessingError(
             status_code=500,
-            message='Failed to make TrustyURI for nanopub.'
+            message='Failed to sign the nanopub.'
         )
     return ctx.signed_file
 
