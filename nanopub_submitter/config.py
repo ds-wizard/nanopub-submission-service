@@ -260,3 +260,10 @@ class SubmitterConfigParser:
 
 
 cfg_parser = SubmitterConfigParser()
+
+
+class RequestConfig:
+
+    def __init__(self, servers: list[str], uri_replace: Optional[str]):
+        self.servers = servers
+        self.uri_replace = uri_replace

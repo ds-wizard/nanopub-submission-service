@@ -6,8 +6,8 @@ import uuid
 
 from typing import Tuple
 
-from nanopub_submitter.config import cfg_parser
-from nanopub_submitter.consts import NICE_NAME, VERSION, BUILD_INFO,\
+from nanopub_submitter.config import cfg_parser, RequestConfig
+from nanopub_submitter.consts import NICE_NAME, VERSION, BUILD_INFO, \
     ENV_CONFIG, DEFAULT_CONFIG, DEFAULT_ENCODING
 from nanopub_submitter.logger import LOG, init_default_logging, init_config_logging
 from nanopub_submitter.mailer import Mailer
@@ -43,6 +43,12 @@ def _extract_content_type(header: str) -> Tuple[str, str]:
     return input_format, DEFAULT_ENCODING
 
 
+def _extract_servers(header: str) -> list[str]:
+    if header == '':
+        return []
+    return list(map(lambda x: x.strip(), header.split(',')))
+
+
 @app.get(path='/')
 async def get_info():
     return fastapi.responses.JSONResponse(
@@ -62,7 +68,11 @@ async def submit_nanopub(request: fastapi.Request):
     # (2) Extract data
     submission_id = str(uuid.uuid4())
     data = await request.body()
-    input_format, encoding = _extract_content_type(request.headers.get('Content-Type'))
+    input_format, encoding = _extract_content_type(request.headers.get('Content-Type', ''))
+    req_cfg = RequestConfig(
+        servers=_extract_servers(request.headers.get('X-NP-Servers', '')),
+        uri_replace=request.headers.get('X-URI-Replace', None)
+    )
     if input_format != 'application/trig':
         return fastapi.responses.Response(
             status_code=fastapi.status.HTTP_400_BAD_REQUEST,
@@ -73,6 +83,7 @@ async def submit_nanopub(request: fastapi.Request):
     try:
         result = process(
             cfg=cfg,
+            req_cfg=req_cfg,
             submission_id=submission_id,
             data=data.decode(encoding),
         )
@@ -85,16 +96,17 @@ async def submit_nanopub(request: fastapi.Request):
         LOG.error(f'[{submission_id}] Unexpected processing error: {str(e)}')
         return fastapi.responses.PlainTextResponse(
             status_code=fastapi.status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content='Failed to process the nanopublication',
+            content=f'Failed to process the nanopublication: {str(e)}',
         )
     # (4) Mail
     Mailer.get().notice(nanopub_uri=result.location)
     # (5) Return
+    headers = dict()
+    if result.location is not None:
+        headers['Location'] = result.location
     return fastapi.responses.Response(
         status_code=fastapi.status.HTTP_201_CREATED,
-        headers={
-            'Location': result.location,
-        },
+        headers=headers,
         content=str(result),
     )
 
