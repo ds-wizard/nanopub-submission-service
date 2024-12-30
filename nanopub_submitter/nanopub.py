@@ -128,8 +128,7 @@ def _publish_nanopub(nanopub_bundle: str, ctx: NanopubProcessingContext) -> list
                         'Content-Type': f'application/trig; charset={DEFAULT_ENCODING}',
                         'User-Agent': f'{PACKAGE_NAME}/{PACKAGE_VERSION}',
                     },
-                    timeout=20,
-                    verify=False,
+                    timeout=300,
                 )
                 if not r.ok:
                     ok = False
