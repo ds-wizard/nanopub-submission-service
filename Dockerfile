@@ -1,12 +1,11 @@
-FROM python:3.11-slim-bookworm
+FROM python:3.13-alpine
 
-RUN apt-get update && \
-  apt install -y --no-install-recommends bash default-jre build-essential gcc && \
-  rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache \
+    bash \
+    openjdk21 \
+    build-base
 
 WORKDIR /app
-
-COPY ./bin /app/bin
 
 ENV PATH="/app/bin:${PATH}"
 
