@@ -181,7 +181,7 @@ def _run_np_trusty(ctx: NanopubProcessingContext) -> str:
         LOG.warn(f'Failed to make TrustyURI ({exit_code}):\n{stdout}\n\n{stderr}')
         raise NanopubProcessingError(
             status_code=500,
-            message='Failed to make TrustyURI for nanopub.'
+            message=f'Failed to make TrustyURI for nanopub.\n\n{stderr}'
         )
     return ctx.trusty_file
 
@@ -198,20 +198,37 @@ def _run_np_sign(ctx: NanopubProcessingContext) -> str:
         LOG.warn(f'Failed to sign the nanopub ({exit_code}):\n{stdout}\n\n{stderr}')
         raise NanopubProcessingError(
             status_code=500,
-            message='Failed to sign the nanopub.'
+            message=f'Failed to sign the nanopub.\n\n{stderr}'
         )
     return ctx.signed_file
 
 
-def _extract_np_uri(nanopub: str) -> Optional[str]:
-    last_this_prefix = None
+def _extract_np_uri(nanopub: str, np_root_index: int) -> Optional[str]:
+    uris = []
     for line in nanopub.splitlines():
         if line.startswith('@prefix this:'):
             try:
-                last_this_prefix = line.split('<', maxsplit=1)[1].split('>', maxsplit=1)[0]
+                uri = line.split('<', maxsplit=1)[1].split('>', maxsplit=1)[0]
+                uris.append(uri)
             except Exception:
                 continue
-    return last_this_prefix
+    if len(uris) == 0:
+        return None
+    if np_root_index < 0 or np_root_index >= len(uris):
+        return uris[-1]
+    return uris[np_root_index]
+
+
+def _get_nanopub_root_index(data: str) -> tuple[int, int]:
+    np_count = 0
+    # If there is no root nanopub, we assume the last one is the root.
+    np_root_index = -1
+    for line in data.splitlines():
+        if ' a np:Nanopublication' in line or ' rdf:type np:Nanopublication' in line:
+            np_count += 1
+        if line == '# SUBMISSION: root nanopublication end':
+            np_root_index = np_count - 1
+    return np_count, np_root_index
 
 
 def process(cfg: SubmitterConfig, req_cfg: RequestConfig,
@@ -228,6 +245,10 @@ def process(cfg: SubmitterConfig, req_cfg: RequestConfig,
     except Exception as e:
         ctx.warn(f'Failed to preprocess nanopub: {str(e)}')
         raise NanopubProcessingError(400, f'Invalid RDF:\n{str(e)}')
+
+    np_count, np_root_index = _get_nanopub_root_index(data)
+    ctx.debug(f'Found {np_count} nanopublications in the bundle, '
+              f'root nanopub index: {np_root_index}')
 
     ctx.debug('Storing nanopub as file locally')
     np_file = cfg.nanopub.workdir / ctx.input_file
@@ -250,7 +271,7 @@ def process(cfg: SubmitterConfig, req_cfg: RequestConfig,
     result_path = cfg.nanopub.workdir / result_file
     try:
         nanopub = result_path.read_text(encoding=DEFAULT_ENCODING)
-        nanopub_uri = _extract_np_uri(nanopub)
+        nanopub_uri = _extract_np_uri(nanopub, np_root_index)
     except Exception as e:
         ctx.error(f'Failed to read nanopub: {str(e)}')
         ctx.cleanup()

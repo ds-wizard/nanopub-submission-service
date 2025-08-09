@@ -10,7 +10,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Disable SSL check, update deps
 - Increase HTTP timeout
 - Update to nanopub utility to v1.75
-
+- Support selection of root nanopub (URI to be returned in Location header)
 
 ## [1.1.0]
 
