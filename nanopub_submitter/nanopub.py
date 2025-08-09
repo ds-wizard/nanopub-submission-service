@@ -203,6 +203,20 @@ def _run_np_sign(ctx: NanopubProcessingContext) -> str:
     return ctx.signed_file
 
 
+def _run_np_publish(result_file: str, ctx: NanopubProcessingContext) -> str:
+    exit_code, stdout, stderr = _np(
+        'publish', result_file,
+        ctx=ctx,
+    )
+    if exit_code != EXIT_SUCCESS:
+        LOG.warn(f'Failed to publish the nanopub ({exit_code}):\n{stdout}\n\n{stderr}')
+        raise NanopubProcessingError(
+            status_code=500,
+            message='Failed to publish the nanopub.'
+        )
+    return ctx.signed_file
+
+
 def _extract_np_uri(nanopub: str) -> Optional[str]:
     last_this_prefix = None
     for line in nanopub.splitlines():
@@ -268,13 +282,7 @@ def process(cfg: SubmitterConfig, req_cfg: RequestConfig,
         nanopub_uri = new_uri
 
     ctx.debug('Submitting nanopub(s) to server(s)')
-    servers = _publish_nanopub(nanopub_bundle=nanopub, ctx=ctx)
-
-    if len(servers) == 0:
-        ctx.error('Failed to publish nanopub')
-        ctx.cleanup()
-        raise NanopubProcessingError(500, 'Could not publish nanopublication'
-                                          ' to any nanopub server.')
+    servers = _run_np_publish(result_file=result_file, ctx=ctx)
 
     triple_store = None
     if cfg.triple_store.enabled:
